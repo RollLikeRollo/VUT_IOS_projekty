@@ -1,0 +1,242 @@
+#!/usr/bin/env bash
+
+## Hlavicka
+## --------
+## Jan Zbořil
+## xzbori20
+## xzbori20@stud.fit.vutbr.cz
+## projekt IOS 1
+## FIT VUT Brno
+## 2020
+
+##-------------
+
+POSIXLY_CORRECT=yes
+Directory=''
+RootDirectoy=$(pwd)
+NumberOfDirectories=0
+NumberOfFiles=0
+Ignor='huiasehfkjabnsgivndsjhkahvmjgbdizuaASFVGJHHEWEKUJDSVBFZUAEsfcdbgzjŠHOIIjkshdgfvuisehfiukvgawietursabuy'
+IgnorStatus=0
+Norm=0
+
+## kategorie velikost - pole
+ArrSize=(0 0 0 0 0 0 0 0 0)
+NumberOfHashes=(0 0 0 0 0 0 0 0 0)
+
+
+## Nacitani parametru a prepinacu
+
+NumberOfParams=$#
+
+
+if [ $NumberOfParams -gt 3 ];then
+    echo "Chybny pocet argumetu" >&2
+    exit 1
+fi
+
+while getopts "i:n" opt
+do
+    case $opt in
+        i)
+            Ignor="$OPTARG";;
+        n)
+            Norm=1;;
+        *) 
+            echo "Chybny prepinac" >&2
+            exit 1;;
+    esac
+done
+
+shift "$((OPTIND-1))"
+NumberOfParams=$#
+
+
+if [ $NumberOfParams -eq 1 ];then
+    Directory="$1"
+fi
+
+if [ $NumberOfParams -eq 0 ];then
+    Directory="$(pwd)"
+fi
+
+if [ $NumberOfParams -gt 1 ];then
+    echo "Chybny pocet argumetu" >&2
+    exit 1
+fi
+
+
+##je to slozka nebo ne?
+
+if [ ! -d "$Directory" ];then
+        echo "Slozka s nazvem ${Directory} neexistuje" >&2
+        exit 1
+    else
+        if [[ "$RootDirectoy" == "$Ignor" ]];then       ##je vyjimka root slozka?
+        echo "Slozka s nazvem ${Ignor} je root. Skript nemuze ignorovat root slozku" >&2
+        exit 1
+    fi
+fi
+
+# echo "$Ignor"
+# echo "$Directory"
+
+## prochazeni slozky
+for i in $(find "$Directory" -type d,f ! -path "*$Ignor*"); do
+    
+    #echo "$i"
+    if [ -f "$i" ];then
+
+        NumberOfFiles=$((NumberOfFiles+1))
+        
+        ItemSize=$(stat -c%s "$i")
+        
+        if [ "$ItemSize" -lt 100 ];then
+            ArrSize[ 0 ]=$((ArrSize[ 0 ]+1))
+         #  echo "${ArrSize[ 0 ]}"
+        elif [ "$ItemSize" -lt 1024 ];then
+            ArrSize[ 1 ]=$((ArrSize[ 1 ]+1))
+        elif [ "$ItemSize" -lt 10240 ];then
+            ArrSize[ 2 ]=$((ArrSize[ 2 ]+1))
+        elif [ "$ItemSize" -lt 102400 ];then
+            ArrSize[ 3 ]=$((ArrSize[ 3 ]+1))
+        elif [ "$ItemSize" -lt 1048576 ];then
+            ArrSize[ 4 ]=$((ArrSize[ 4 ]+1))
+        elif [ "$ItemSize" -lt 10485760 ];then
+            ArrSize[ 5 ]=$((ArrSize[ 5 ]+1))
+        elif [ "$ItemSize" -lt 104857600 ];then
+            ArrSize[ 6 ]=$((ArrSize[ 6 ]+1))
+        elif [ "$ItemSize" -lt 1073741824 ];then
+            ArrSize[ 7 ]=$((ArrSize[ 7 ]+1))
+        elif [ "$ItemSize" -ge 1073741824 ];then
+            ArrSize[ 8 ]=$((ArrSize[ 8 ]+1))
+        fi
+
+    elif [ -d "$i" ];then
+        NumberOfDirectories=$((NumberOfDirectories+1))
+    fi
+    
+done
+
+## vypis jednotlive krizky
+
+printhash()
+{
+    i=0
+    #echo "toto je $1"
+    while [[ $i -lt $1 ]]
+    do
+       printf "#"
+       i=$((i+1))
+       #echo "$i"
+    done
+}
+
+## vypis histogramu, pokud neni normalizace
+
+if [ "$Norm" -eq 0 ];then
+
+    for i in 0 1 2 3 4 5 6 7 8;do
+        Lenght="${ArrSize[ $i ]}"
+    # echo "$Lenght"
+        NumberOfHashes[ $i ]="$Lenght"
+      #  echo "${NumberOfHashes[ $i ]}"
+    done
+
+    ## vypis
+    echo "Root directory: $Directory"
+    echo "Directories: $NumberOfDirectories"
+    echo "All files: $NumberOfFiles"
+    echo "File size histogram:"
+    printf "  <100 B  : " ;printhash "${NumberOfHashes[ 0 ]}"
+    printf "%s\n"
+    printf "  <1 KiB  : " ;printhash "${NumberOfHashes[ 1 ]}"
+    printf "%s\n"
+    printf "  <10 KiB : " ;printhash "${NumberOfHashes[ 2 ]}"
+    printf "%s\n"
+    printf "  <100 KiB: " ;printhash "${NumberOfHashes[ 3 ]}"
+    printf "%s\n"
+    printf "  <1 MiB  : " ;printhash "${NumberOfHashes[ 4 ]}"
+    printf "%s\n"
+    printf "  <10 MiB : " ;printhash "${NumberOfHashes[ 5 ]}"
+    printf "%s\n"
+    printf "  <100 MiB: " ;printhash "${NumberOfHashes[ 6 ]}"
+    printf "%s\n"
+    printf "  <1 GiB  : " ;printhash "${NumberOfHashes[ 7 ]}"
+    printf "%s\n"
+    printf "  >=1 GiB : " ;printhash "${NumberOfHashes[ 8 ]}"
+    printf "%s\n"
+fi
+
+## vypis histogramu, pokud je normalizace
+
+if [ "$Norm" -eq 1 ];then
+
+    # hleda nejdelsi radek znaku #
+    LongestLine=0
+
+    for i in 0 1 2 3 4 5 6 7 8;do
+        Lenght="${ArrSize[ $i ]}"
+      #  echo "$Lenght"
+        NumberOfHashes[ $i ]="$Lenght"
+      #  echo "${NumberOfHashes[ $i ]}"
+      if [ "$Lenght" -gt "$LongestLine" ];then
+        LongestLine="$Lenght"
+      fi
+    done
+    
+#     echo "Nejdelsi radek $LongestLine"        testovaci vypis
+    
+    # test pripojeni na terminal
+    LenghtOfTerm=79
+    test -t 0
+    if [ $? -eq 0 ];then
+        LenghtOfTerm="$(tput cols)"
+        LenghtOfTerm=$((LenghtOfTerm-13))
+    else
+        LenghtOfTerm=67
+    fi
+    
+    # pokud je pocet # delsi jak terminal
+    if [ "$LenghtOfTerm" -lt "$LongestLine" ];then
+        #echo "test"                              #testovaci vypis
+        Normal=`echo "(0.5 + $LenghtOfTerm) / $LongestLine" | bc -l`
+      #  echo "tohle je normal $Normal"                         #testovaci vypis
+        
+        for n in 0 1 2 3 4 5 6 7 8;do
+            NumberOfHashes[ "$n" ]=`echo "$Normal*${NumberOfHashes[ "$n" ]}" | bc`
+#             echo "${NumberOfHashes[ "$n" ]}"
+            NumberOfHashes[ "$n" ]=`echo ${NumberOfHashes[ "$n" ]} | awk '{print int($1+0.5)}'`
+#             echo "${NumberOfHashes[ "$n" ]}"
+            if [ ${NumberOfHashes[$n]} -lt 1 ];then
+                if [ ${NumberOfHashes[$n]} -gt 0 ];then
+                    NumberOfHashes[ "$n" ]=1
+                fi
+            fi
+        done
+    fi
+    
+    ## vypis
+    echo "Root directory: $Directory"
+    echo "Directories: $NumberOfDirectories"
+    echo "All files: $NumberOfFiles"
+    echo "File size histogram:"
+    printf "  <100 B  : " ;printhash "${NumberOfHashes[ 0 ]}"
+    printf "%s\n"
+    printf "  <1 KiB  : " ;printhash "${NumberOfHashes[ 1 ]}"
+    printf "%s\n"
+    printf "  <10 KiB : " ;printhash "${NumberOfHashes[ 2 ]}"
+    printf "%s\n"
+    printf "  <100 KiB: " ;printhash "${NumberOfHashes[ 3 ]}"
+    printf "%s\n"
+    printf "  <1 MiB  : " ;printhash "${NumberOfHashes[ 4 ]}"
+    printf "%s\n"
+    printf "  <10 MiB : " ;printhash "${NumberOfHashes[ 5 ]}"
+    printf "%s\n"
+    printf "  <100 MiB: " ;printhash "${NumberOfHashes[ 6 ]}"
+    printf "%s\n"
+    printf "  <1 GiB  : " ;printhash "${NumberOfHashes[ 7 ]}"
+    printf "%s\n"
+    printf "  >=1 GiB : " ;printhash "${NumberOfHashes[ 8 ]}"
+    printf "%s\n"
+fi
